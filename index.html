@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Fish Feeder Schedule</title>
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #0078D7; color: white; }
+    input, button { padding: 6px; margin: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Fish Feeder Schedule</h1>
+
+  <form id="scheduleForm">
+    <input type="hidden" id="schedule_id">
+    <input type="time" id="feed_time" required>
+    <input type="number" id="feed_amount" placeholder="Jumlah pakan" required>
+    <label><input type="checkbox" id="is_active" checked> Aktif</label>
+    <button type="submit" id="submitBtn">Tambah Jadwal</button>
+    <button type="button" id="cancelBtn" style="display:none">Batal</button>
+  </form>
+
+  <table id="scheduleTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Waktu</th>
+        <th>Jumlah</th>
+        <th>Status</th>
+        <th>Aksi</th>
+        <th>Keterangan</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  <script>
+    const API_URL = 'http://localhost:5000/schedules';
+
+    async function loadSchedules() {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      const tbody = document.querySelector('#scheduleTable tbody');
+      tbody.innerHTML = '';
+      data.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${s.id}</td>
+          <td>${s.feed_time}</td>
+          <td>${s.feed_amount}</td>
+          <td>${s.is_active ? 'Aktif' : 'Nonaktif'}</td>
+          <td>
+            <button onclick="deleteSchedule(${s.id})">Hapus</button>
+            <button onclick="editSchedule(${s.id})">Update</button>
+          </td>
+          <td>${s.is_edited ? 'Telah diupdate' : 'Tidak diupdate'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteSchedule(id) {
+      await fetch(API_URL + '/' + id, { method: 'DELETE' });
+      loadSchedules();
+    }
+
+    async function editSchedule(id) {
+      // ambil data schedule tunggal dan isi form untuk diedit
+      const res = await fetch(API_URL + '/' + id);
+      if (!res.ok) return;
+      const s = await res.json();
+      document.querySelector('#schedule_id').value = s.id;
+      document.querySelector('#feed_time').value = s.feed_time || '';
+      document.querySelector('#feed_amount').value = s.feed_amount || '';
+      document.querySelector('#is_active').checked = !!s.is_active;
+      document.querySelector('#submitBtn').textContent = 'Simpan Perubahan';
+      document.querySelector('#cancelBtn').style.display = 'inline-block';
+    }
+
+    document.querySelector('#cancelBtn').addEventListener('click', () => {
+      document.querySelector('#scheduleForm').reset();
+      document.querySelector('#schedule_id').value = '';
+      document.querySelector('#submitBtn').textContent = 'Tambah Jadwal';
+      document.querySelector('#cancelBtn').style.display = 'none';
+    });
+
+    document.querySelector('#scheduleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.querySelector('#schedule_id').value;
+      const feed_time = document.querySelector('#feed_time').value;
+      const feed_amount = document.querySelector('#feed_amount').value;
+      const is_active = document.querySelector('#is_active').checked;
+
+      if (id) {
+        // update existing schedule (set is_edited = true)
+        await fetch(API_URL + '/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feed_time, feed_amount, is_active, is_edited: 1 })
+        });
+        document.querySelector('#schedule_id').value = '';
+        document.querySelector('#submitBtn').textContent = 'Tambah Jadwal';
+        document.querySelector('#cancelBtn').style.display = 'none';
+      } else {
+        // create new schedule
+        await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feed_time, feed_amount, is_active: is_active ? 1 : 0, is_edited: 0 })
+        });
+      }
+
+      e.target.reset();
+      loadSchedules();
+    });
+
+    loadSchedules();
+  </script>
+    loadSchedules();
+  </script>
+</body>
+</html>
